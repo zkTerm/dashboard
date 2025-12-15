@@ -1,0 +1,44 @@
+{
+  "name": "@zkterm/dashboard",
+  "version": "1.0.0",
+  "description": "Dashboard UI components for zkTerm - includes DashboardCard, SettingsModal, and AuthenticatedDashboard components with cyberpunk terminal styling.",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "scripts": {
+    "build": "tsc",
+    "prepublishOnly": "npm run build"
+  },
+  "keywords": [
+    "zkterm",
+    "dashboard",
+    "ui-components",
+    "react",
+    "terminal",
+    "cyberpunk",
+    "settings-modal",
+    "card-component"
+  ],
+  "author": "zkTerm",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/zkterm/dashboard"
+  },
+  "peerDependencies": {
+    "react": "^18.0.0",
+    "react-dom": "^18.0.0",
+    "lucide-react": "^0.400.0",
+    "tailwindcss": "^4.0.0"
+  },
+  "devDependencies": {
+    "typescript": "^5.0.0",
+    "@types/react": "^18.0.0",
+    "@types/react-dom": "^18.0.0",
+    "@types/node": "^20.0.0"
+  },
+  "files": [
+    "dist",
+    "README.md",
+    "LICENSE"
+  ]
+}
