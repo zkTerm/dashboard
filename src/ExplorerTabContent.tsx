@@ -2,6 +2,7 @@ import { CheckCircle, AlertCircle, X } from 'lucide-react';
 import { ExplorerWindow } from './ExplorerWindow';
 import { AuthenticatedDashboard } from './AuthenticatedDashboard';
 import { DashboardCard } from './DashboardCard';
+import { TwoFactorStatus } from './types';
 
 interface GoogleUser {
   email?: string;
@@ -35,6 +36,7 @@ export interface ExplorerTabContentProps {
   zkId?: string;
   verifiedAt?: string;
   lastSign?: string;
+  twoFactorStatus?: TwoFactorStatus;
 }
 
 function maskEmail(email: string): string {
@@ -64,6 +66,7 @@ export function ExplorerTabContent({
   zkId,
   verifiedAt,
   lastSign,
+  twoFactorStatus,
 }: ExplorerTabContentProps) {
   const spinnerChars = ['|', '/', '-', '\\'];
 
@@ -116,10 +119,13 @@ export function ExplorerTabContent({
         <AuthenticatedDashboard
           email={googleUser?.email || ''}
           zkId={zkId || googleUser?.googleUserId?.slice(0, 12) || 'ScSdkcRf'}
-          verifiedAt={verifiedAt || 'Not yet verified'}
-          lastSign={lastSign || 'N/A'}
+          googleUserId={googleUser?.googleUserId}
+          name={googleUser?.name || googleUser?.email?.split('@')[0] || ''}
+          verifiedAt={verifiedAt}
+          lastSign={lastSign}
           onLogout={onLogout}
           onSettingsClick={onSettingsClick}
+          twoFactorStatus={twoFactorStatus}
         />
       </div>
     );

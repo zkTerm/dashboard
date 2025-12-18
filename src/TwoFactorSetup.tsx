@@ -1,6 +1,7 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { Shield, CheckCircle, AlertCircle, Loader2, Copy, Check, Mail, Smartphone } from 'lucide-react';
 import { loadCustomResendKey, isUsingCustomResend } from './SettingsModal';
+import { derive2FALookupKey } from './onchainTotpStorage';
 
 function getEmailHeaders(): HeadersInit {
   const headers: HeadersInit = { "Content-Type": "application/json" };
@@ -42,6 +43,33 @@ export function TwoFactorSetup({ onComplete, autoOpen = false, hideButton = fals
   const [emailOtpCode, setEmailOtpCode] = useState("");
   const [emailVerificationSent, setEmailVerificationSent] = useState(false);
   const [googleEmail, setGoogleEmail] = useState<string | null>(null);
+  const [googleUserId, setGoogleUserId] = useState<string | null>(null);
+  
+  const sync2FAToLocalStorage = useCallback(async (method: 'totp' | 'email', enabled: boolean) => {
+    if (!googleEmail || !googleUserId) {
+      console.warn('[2FA Sync] Missing credentials, cannot sync to localStorage');
+      return;
+    }
+    try {
+      const lookupKey = await derive2FALookupKey(googleEmail, googleUserId);
+      const storageKey = `zkterm:2fa:local:${lookupKey}`;
+      
+      if (!enabled) {
+        localStorage.removeItem(storageKey);
+        console.log('[2FA Sync] Removed localStorage entry:', storageKey);
+        return;
+      }
+      
+      const data = method === 'totp' 
+        ? { encryptedSecret: 'server-managed', verified: true, verifiedAt: Date.now() }
+        : { method: 'email', verified: true, verifiedAt: Date.now() };
+      
+      localStorage.setItem(storageKey, JSON.stringify(data));
+      console.log('[2FA Sync] Saved to localStorage:', storageKey, method);
+    } catch (err) {
+      console.error('[2FA Sync] Failed to sync:', err);
+    }
+  }, [googleEmail, googleUserId]);
 
   const check2FAStatus = async () => {
     setIsLoading(true);
@@ -57,6 +85,16 @@ export function TwoFactorSetup({ onComplete, autoOpen = false, hideButton = fals
       const emailData = await emailRes.json();
       const sessionData = await sessionRes.json();
       
+      let userEmail: string | null = null;
+      let userId: string | null = null;
+      
+      if (sessionData.authenticated && sessionData.user?.email) {
+        userEmail = sessionData.user.email;
+        userId = sessionData.user.googleUserId || null;
+        setGoogleEmail(userEmail);
+        if (userId) setGoogleUserId(userId);
+      }
+      
       if (totpData.success) {
         setIs2FAEnabled(totpData.enabled);
         setStep('status');
@@ -70,8 +108,28 @@ export function TwoFactorSetup({ onComplete, autoOpen = false, hideButton = fals
         setEmailStep('status');
       }
       
-      if (sessionData.authenticated && sessionData.user?.email) {
-        setGoogleEmail(sessionData.user.email);
+      if (userEmail && userId) {
+        try {
+          const lookupKey = await derive2FALookupKey(userEmail, userId);
+          const storageKey = `zkterm:2fa:local:${lookupKey}`;
+          
+          if (totpData.success && totpData.enabled) {
+            const data = { encryptedSecret: 'server-managed', verified: true, verifiedAt: Date.now() };
+            localStorage.setItem(storageKey, JSON.stringify(data));
+            console.log('[2FA Sync] Synced TOTP status to localStorage:', storageKey);
+          } else if (emailData.success && emailData.enabled) {
+            const data = { method: 'email', verified: true, verifiedAt: Date.now() };
+            localStorage.setItem(storageKey, JSON.stringify(data));
+            console.log('[2FA Sync] Synced Email status to localStorage:', storageKey);
+          } else if (totpData.success && !totpData.enabled && emailData.success && !emailData.enabled) {
+            localStorage.removeItem(storageKey);
+            console.log('[2FA Sync] Cleared localStorage (no 2FA enabled):', storageKey);
+          } else {
+            console.log('[2FA Sync] Skipped sync - API responses incomplete:', { totpSuccess: totpData.success, emailSuccess: emailData.success });
+          }
+        } catch (syncErr) {
+          console.error('[2FA Sync] Failed to sync status:', syncErr);
+        }
       }
     } catch (err) {
       setError("Network error. Please try again.");
@@ -121,6 +179,7 @@ export function TwoFactorSetup({ onComplete, autoOpen = false, hideButton = fals
         setIs2FAEnabled(true);
         setStep('backup');
         setSuccess("2FA enabled successfully!");
+        await sync2FAToLocalStorage('totp', true);
       } else {
         setError(data.error || "Invalid verification code");
       }
@@ -151,6 +210,7 @@ export function TwoFactorSetup({ onComplete, autoOpen = false, hideButton = fals
         setStep('status');
         setSuccess("2FA disabled successfully");
         setVerifyCode("");
+        await sync2FAToLocalStorage('totp', false);
       } else {
         setError(data.error || "Invalid verification code");
       }
@@ -277,6 +337,7 @@ export function TwoFactorSetup({ onComplete, autoOpen = false, hideButton = fals
       if (data.success) {
         setSuccess("Email OTP disabled successfully");
         setEmailOtpCode("");
+        await sync2FAToLocalStorage('email', false);
         await check2FAStatus();
       } else {
         setError(data.error || "Invalid OTP code");
@@ -300,6 +361,7 @@ export function TwoFactorSetup({ onComplete, autoOpen = false, hideButton = fals
         setSuccess("Email OTP enabled successfully!");
         setSecurityEmail("");
         setEmailVerificationSent(false);
+        await sync2FAToLocalStorage('email', true);
         await check2FAStatus();
       } else {
         setError(data.error || "Verification failed. Did you click the link?");

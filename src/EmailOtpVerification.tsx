@@ -80,6 +80,11 @@ export function EmailOtpVerification({ isOpen, onSuccess, onCancel }: EmailOtpVe
       });
       const data = await res.json();
       if (data.success) {
+        // Store decentralized session token in localStorage if provided
+        if (data.sessionToken) {
+          localStorage.setItem('zkterm_session_token', data.sessionToken);
+          console.log('[EmailOTP] Session token stored in localStorage');
+        }
         setSuccess("Verified successfully!");
         setTimeout(() => onSuccess(), 500);
       } else {

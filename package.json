@@ -24,6 +24,10 @@
     "type": "git",
     "url": "https://github.com/zkterm/dashboard"
   },
+  "dependencies": {
+    "@zkterm/zkauth": "workspace:*",
+    "qrcode": "^1.5.0"
+  },
   "peerDependencies": {
     "react": "^18.0.0",
     "react-dom": "^18.0.0",
